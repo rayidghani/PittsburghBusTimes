@@ -47,9 +47,6 @@ API_HOST = 'http://realtime.portauthority.org/bustime/api/v3/'
 PREDICTIONS_PATH = 'getpredictions'
 
 
-#http://realtime.portauthority.org/bustime/api/v3/getpredictions?key=v34KL6fy8BzpbXf5A3ziuH6Y6&rt=61C,61D&rtpidatafeed=Port%20Authority%20Bus&stpid=10920&format=json
-
-
 def request(host, path, url_params=None):
     """Given your API_KEY, send a GET request to the API.
     Args:
@@ -95,14 +92,28 @@ def search(stopids,routes):
 
 
 def main():
-  a = search('10920','61C,61D')
+  
+  origin = 'work'
+  NEXT_ONLY = 1
+
+  if (origin == 'home'):
+    stopid = 10920
+    direction = 'INBOUND'
+  elif (origin == 'work'):
+    stopid = 7117
+    direction = 'OUTBOUND'
+
+  buses='61C,61D'
+  
+  a = search(stopid,buses)
   dict_obj = json.loads(a)
   #print(dict_obj)
   for i in range(0,len(dict_obj['bustime-response']['prd'])):
-  	bus = dict_obj['bustime-response']['prd'][i]
-  	if bus['rtdir'] == 'INBOUND':
-  		print(bus['prdctdn'])
-  		break
+    bus = dict_obj['bustime-response']['prd'][i]
+    if bus['rtdir'] == direction:
+        print(bus['prdctdn'])
+        if NEXT_ONLY:
+            break
 
 
   
