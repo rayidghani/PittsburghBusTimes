@@ -93,8 +93,8 @@ def search(stopids,routes):
 
 def main():
   
-  origin = 'work'
-  NEXT_ONLY = 1
+  origin = 'home'
+  NEXT_ONLY = 0
 
   if (origin == 'home'):
     stopid = 10920
@@ -114,8 +114,6 @@ def main():
         print(bus['prdctdn'])
         if NEXT_ONLY:
             break
-
-
   
 if __name__== "__main__":
   main()
