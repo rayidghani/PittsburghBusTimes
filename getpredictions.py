@@ -32,7 +32,7 @@ except ImportError:
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +69,7 @@ def request(host, path, url_params=None):
     return response.text
 
 
-def search(stopids,routes):
+def search(stop_ids,routes):
     """Query the Search API by a search term and location.
 
     Args:
@@ -84,37 +84,91 @@ def search(stopids,routes):
     url_params = {
         'key': PGH_API_KEY,
         'rtpidatafeed': 'Port Authority Bus',
-        'stpid': stopids,
+        'stpid': stop_ids,
         'rt': routes,
         'format':'json'
     }
     return request(API_HOST, PREDICTIONS_PATH, url_params=url_params)
 
 
+def nextbustime(origin):
+    stop_id, direction, buses = setparams(origin)
+    dict_buses = get_bus_info(stop_id,buses)
+    logger.info('dict buses is %s', dict_buses)
+    for i in range(0,len(dict_buses['bustime-response']['prd'])):
+        bus = dict_buses['bustime-response']['prd'][i]
+        if bus['prdctdn'] == 'DUE':
+            bus['prdctdn'] = '0'
+        if bus['rtdir'] == direction:
+            return int(bus['prdctdn'])
+
+def allbustimes(origin):
+    stop_id, direction, buses = setparams(origin)
+    dict_buses = get_bus_info(stop_id,buses)
+    logger.debug('dict buses is %s', dict_buses)
+    bustimes=[]
+    for i in range(0,len(dict_buses['bustime-response']['prd'])):
+        bus = dict_buses['bustime-response']['prd'][i]
+        if bus['prdctdn'] == 'DUE':
+            bus['prdctdn'] = '0'
+        if bus['rtdir'] == direction:
+            bustimes.append(int(bus['prdctdn']))
+    return bustimes
+
+def leavenow(origin, gap_threshold):
+    bustimes = allbustimes(origin)
+    if len(bustimes) > 1:
+        bustimes.sort()
+        differences = [t - s for s, t in zip(bustimes, bustimes[1:])]
+        differences.sort()
+        if any(x > gap_threshold for x in differences):
+            # all bus times before the gap and the gap
+            return 1
+        else:
+            return 0
+    else:
+        logger.info('only 1 bus time') 
+        return ''
+
+def setparams(origin):
+    if (origin == 'home'):
+        stop_id = 10920
+        direction = 'INBOUND'
+    elif (origin == 'work'):
+        stop_id = 7117
+        direction = 'OUTBOUND'
+    else:
+        logger.error('undefined origin')
+    buses='61C,61D'
+
+    return stop_id, direction, buses
+
+def get_bus_info(stop_id,buses):
+    search_api_response = search(stop_id,buses)
+    return json.loads(search_api_response)
+
+
 def main():
-  
-  origin = 'home'
-  NEXT_ONLY = 0
 
-  if (origin == 'home'):
-    stopid = 10920
-    direction = 'INBOUND'
-  elif (origin == 'work'):
-    stopid = 7117
-    direction = 'OUTBOUND'
+    origin = 'work'
+    a = nextbustime(origin)
+    print('next bus is in',a)
 
-  buses='61C,61D'
-  
-  a = search(stopid,buses)
-  dict_obj = json.loads(a)
-  #print(dict_obj)
-  for i in range(0,len(dict_obj['bustime-response']['prd'])):
-    bus = dict_obj['bustime-response']['prd'][i]
-    if bus['rtdir'] == direction:
-        print(bus['prdctdn'])
-        if NEXT_ONLY:
-            break
+    b = allbustimes(origin)
+    print('next buses are in',b)
+
+    c = leavenow(origin, 10)
+    if c:
+        print('leave', allbustimes(origin))
+    else:
+        print('stay')
+
   
 if __name__== "__main__":
   main()
-
+     
+# input: origin: home or office
+# outputs
+# 1. next bus time
+# 2. all bus times returned
+# 3. leave in x minutes because a gap is coming
